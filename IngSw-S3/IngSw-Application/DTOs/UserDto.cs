@@ -2,7 +2,7 @@
 
 public class UserDto
 {
-    public record Request(string? userName, string? password);
-    public record Response(string? userName, string? name, string? lastName, int dni,
-        int? licence, string phoneNumber, string? typeEmployee, string? token);
+    public record Request(string? email, string? password);
+    public record Response(string email,string name, string lastName, string cuil,
+        string licence, string phoneNumber, string typeEmployee/*, string token*/);
 }

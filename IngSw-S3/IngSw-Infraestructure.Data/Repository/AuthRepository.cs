@@ -13,7 +13,7 @@ public class AuthRepository : IAuthRepository
     {
         _authDao = authDao;
     }
-    public async Task<User?> Login(UserDto.Request userData)
+    public async Task<User?> Login(string userEmail, string userPassword)
     {
         var userFound = _authDao.Login(userData);
         return null;

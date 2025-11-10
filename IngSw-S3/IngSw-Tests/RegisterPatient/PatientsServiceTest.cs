@@ -13,13 +13,15 @@ public class PatientsServiceTest
 {
     private readonly IPatientRepository _patientsRepository;
     private readonly PatientsService _patientsService;
+    private readonly ISocialWorkServiceApi _socialWorkServiceApi;
     public PatientsServiceTest()
     {
         _patientsRepository = Substitute.For<IPatientRepository>();
-        _patientsService = new PatientsService(_patientsRepository);
+        _socialWorkServiceApi = Substitute.For<ISocialWorkServiceApi>();
+        _patientsService = new PatientsService(_patientsRepository, _socialWorkServiceApi);
     }
     [Fact]
-    public async Task AddPatient_WhenTheHealthcareSystemExists_ShouldCreateThePatient()
+    public async Task AddPatient_WhenTheHealthcareSystemExistsWithSocialWorkExisting_ShouldCreateThePatient()
     {
         // Arrange
         var patientDto = new PatientDto.Request(
@@ -29,8 +31,42 @@ public class PatientsServiceTest
             email: "lautalopez@gmail.com",
             streetDomicilie: "Avenue Nine Of July",
             numberDomicilie: 356,
-            localityDomicilie: "CABA"
+            localityDomicilie: "CABA",
+            nameSocialWork: "OSPE",
+            affiliateNumber: "4798540152"
         );
+        _socialWorkServiceApi.ExistingSocialWork("OSPE")
+            .Returns(Task.FromResult(true));
+        _socialWorkServiceApi.IsAffiliated("4798540152")
+        .Returns(Task.FromResult(true));
+        // Act
+        var result = await _patientsService.AddPatient(patientDto);
+
+        // Assert
+        await _patientsRepository.Received(1).AddPatient(Arg.Any<Patient>());
+        await _socialWorkServiceApi.Received(1).ExistingSocialWork(Arg.Any<string>());
+        await _socialWorkServiceApi.Received(1).IsAffiliated(Arg.Any<string>());
+        Assert.NotNull(result);
+        Assert.Equal(patientDto.cuilPatient, result.cuilPatient);
+        Assert.Equal(patientDto.namePatient, result.namePatient);
+        Assert.Equal(patientDto.lastNamePatient, result.lastNamePatient);
+    }
+    [Fact]
+    public async Task AddPatient_WhenTheHealthcareSystemExistsWithoutSocialWork_ShouldCreateThePatient()
+    {
+        // Arrange
+        var patientDto = new PatientDto.Request(
+            cuilPatient: "20-45750673-8",
+            namePatient: "Lautaro",
+            lastNamePatient: "Lopez",
+            email: "lautalopez@gmail.com",
+            streetDomicilie: "Avenue Nine Of July",
+            numberDomicilie: 356,
+            localityDomicilie: "CABA",
+            nameSocialWork: null,
+            affiliateNumber: null
+        );
+
         // Act
         var result = await _patientsService.AddPatient(patientDto);
 
@@ -41,7 +77,62 @@ public class PatientsServiceTest
         Assert.Equal(patientDto.namePatient, result.namePatient);
         Assert.Equal(patientDto.lastNamePatient, result.lastNamePatient);
     }
+    [Fact]
+    public async Task AddPatient_WhenTheHealthcareSystemExistsWithSocialWorkInexisting_ShouldCreateThePatient()
+    {
+        // Arrange
+        var patientDto = new PatientDto.Request(
+            cuilPatient: "20-45750673-8",
+            namePatient: "Lautaro",
+            lastNamePatient: "Lopez",
+            email: "lautalopez@gmail.com",
+            streetDomicilie: "Avenue Nine Of July",
+            numberDomicilie: 356,
+            localityDomicilie: "CABA",
+            nameSocialWork: "Subsidio",
+            affiliateNumber: "4798540152"
+        );
+        _socialWorkServiceApi.ExistingSocialWork("Subsidio")
+            .Returns(Task.FromResult(false));
 
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<BusinessConflictException>(
+            () => _patientsService.AddPatient(patientDto)
+        );
+        Assert.Equal("La obra social no existe, por lo tanto no se puede registrar al paciente.", exception.Message);
+        await _socialWorkServiceApi.Received(1).ExistingSocialWork(Arg.Any<string>());
+        await _socialWorkServiceApi.Received(0).IsAffiliated(Arg.Any<string>());
+        await _patientsRepository.Received(0).AddPatient(Arg.Any<Patient>());
+    }
+    [Fact]
+    public async Task AddPatient_WhenTheHealthcareSystemExistsWithSocialWorkExistingButWitouthAffiliation_ShouldCreateThePatient()
+    {
+        // Arrange
+        var patientDto = new PatientDto.Request(
+            cuilPatient: "20-45750673-8",
+            namePatient: "Lautaro",
+            lastNamePatient: "Lopez",
+            email: "lautalopez@gmail.com",
+            streetDomicilie: "Avenue Nine Of July",
+            numberDomicilie: 356,
+            localityDomicilie: "CABA",
+            nameSocialWork: "Subsidio",
+            affiliateNumber: "4798540152"
+        );
+        _socialWorkServiceApi.ExistingSocialWork("Subsidio")
+            .Returns(Task.FromResult(true));
+        _socialWorkServiceApi.IsAffiliated("4798540152")
+            .Returns(Task.FromResult(false));
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<BusinessConflictException>(
+            () => _patientsService.AddPatient(patientDto)
+        );
+        Assert.Equal("El paciente no es afiliado de la obra social, por lo tanto no se puede registrar al paciente.", exception.Message);
+        await _socialWorkServiceApi.Received(1).ExistingSocialWork(Arg.Any<string>());
+        await _socialWorkServiceApi.Received(1).IsAffiliated(Arg.Any<string>());
+        await _patientsRepository.Received(0).AddPatient(Arg.Any<Patient>());
+    }
     [Fact]
     public async Task AddPatient_WhenCuilIsNotValid_ThenShouldThrowExceptionAndNotCreateThePatient()
     {
@@ -53,8 +144,14 @@ public class PatientsServiceTest
             email: "lautalopez@gmail.com",
             streetDomicilie: "Avenue Nine Of July",
             numberDomicilie: 356,
-            localityDomicilie: "CABA"
+            localityDomicilie: "CABA",
+            nameSocialWork: "OSPE",
+            affiliateNumber: "4798540152"
         );
+        _socialWorkServiceApi.ExistingSocialWork("OSPE")
+        .Returns(Task.FromResult(true));
+        _socialWorkServiceApi.IsAffiliated("4798540152")
+        .Returns(Task.FromResult(true));
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(
@@ -65,7 +162,6 @@ public class PatientsServiceTest
 
         await _patientsRepository.DidNotReceive().AddPatient(Arg.Any<Patient>());
     }
-
     [Fact]
     public async Task AddPatient_WhenCuilIsNull_ThenShouldThrowExceptionAndNotCreateThePatient()
     {
@@ -77,9 +173,14 @@ public class PatientsServiceTest
             email: "lautalopez@gmail.com",
             streetDomicilie: "Avenue Nine Of July",
             numberDomicilie: 356,
-            localityDomicilie: "CABA"
+            localityDomicilie: "CABA",
+            nameSocialWork: "OSPE",
+            affiliateNumber: "4798540152"
         );
-
+        _socialWorkServiceApi.ExistingSocialWork("OSPE")
+        .Returns(Task.FromResult(true));
+        _socialWorkServiceApi.IsAffiliated("4798540152")
+        .Returns(Task.FromResult(true));
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => _patientsService.AddPatient(patientDto)
@@ -89,7 +190,6 @@ public class PatientsServiceTest
 
         await _patientsRepository.DidNotReceive().AddPatient(Arg.Any<Patient>());
     }
-
     [Fact]
     public async Task AddPatient_WhenCuilIsWhiteSpace_ThenShouldThrowExceptionAndNotCreateThePatient()
     {
@@ -101,9 +201,15 @@ public class PatientsServiceTest
             email: "lautalopez@gmail.com",
             streetDomicilie: "Avenue Nine Of July",
             numberDomicilie: 356,
-            localityDomicilie: "CABA"
+            localityDomicilie: "CABA",
+            nameSocialWork: "OSPE",
+            affiliateNumber: "4798540152"
         );
-        
+        _socialWorkServiceApi.ExistingSocialWork("OSPE")
+        .Returns(Task.FromResult(true));
+        _socialWorkServiceApi.IsAffiliated("4798540152")
+        .Returns(Task.FromResult(true));
+
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(
             () => _patientsService.AddPatient(patientDto)
@@ -111,7 +217,6 @@ public class PatientsServiceTest
         Assert.Equal("CUIL no puede ser vacío.", exception.Message);
         await _patientsRepository.DidNotReceive().AddPatient(Arg.Any<Patient>());
     }
-
     [Fact]
     public async Task AddPatient_WhenPatientAlreadyExists_ThenShouldThrowExceptionAndNotCreateThePatient()
     {
@@ -123,7 +228,9 @@ public class PatientsServiceTest
             email: "lautalopez@gmail.com",
             streetDomicilie: "Avenue Nine Of July",
             numberDomicilie: 356,
-            localityDomicilie: "CABA"
+            localityDomicilie: "CABA",
+            nameSocialWork: "OSPE",
+            affiliateNumber: "4798540152"
         );
 
         var existingPatient = new Patient
@@ -143,7 +250,6 @@ public class PatientsServiceTest
         Assert.Equal($"El paciente de cuil {patientDto.cuilPatient} ya se encuentra registrado", exception.Message);
         await _patientsRepository.DidNotReceive().AddPatient(Arg.Any<Patient>());
     }
-
     [Fact]
     public async Task GetByCuil_WhenPatientsExistWithMatchingCuil_ShouldReturnAllMatchingPatients()
     {
@@ -208,5 +314,4 @@ public class PatientsServiceTest
             );
         Assert.Equal($"No hay pacientes que coincidan con el cuil {cuilReceived} registrados.", exception.Message);
     }
-
 }

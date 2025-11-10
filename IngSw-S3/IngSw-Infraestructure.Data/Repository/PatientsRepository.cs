@@ -41,7 +41,7 @@ public class PatientsRepository : IPatientRepository
                 Number = Convert.ToInt32(reader["number"]),
                 Street = reader["street"].ToString(),
                 Locality = reader["locality"].ToString()
-            }
+            },
         };
     }
 }
