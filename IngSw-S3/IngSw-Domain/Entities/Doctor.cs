@@ -2,4 +2,5 @@
 
 public class Doctor : Employee
 {
+    public User? User { get; set; }
 }

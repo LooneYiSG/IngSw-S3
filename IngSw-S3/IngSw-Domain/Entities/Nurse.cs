@@ -2,4 +2,5 @@
 
 public class Nurse : Employee
 {
+    public User? User { get; set; }
 }

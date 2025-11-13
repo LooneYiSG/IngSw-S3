@@ -4,36 +4,31 @@ using IngSw_Application.Interfaces;
 using IngSw_Domain.Entities;
 using IngSw_Domain.Interfaces;
 using IngSw_Domain.ValueObjects;
-using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace IngSw_Application.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly IAuthRepository _authRepository;
+    private readonly IEmployeeRepository _employeeRepository;
     //private readonly IConfiguration _configuration;
-    public AuthService(IAuthRepository authRepository/*, IConfiguration configuration*/)
+    public AuthService(IEmployeeRepository employeeRepository/*, IConfiguration configuration*/)
     {
-        _authRepository = authRepository;
+        _employeeRepository = employeeRepository;
         // _configuration = configuration;
     }
     public async Task<UserDto.Response?> Login(UserDto.Request? userData)
     {
         if (string.IsNullOrWhiteSpace(userData!.email) || string.IsNullOrWhiteSpace(userData!.password)) throw new ArgumentException("Debe ingresar correctamente los datos");
-        var userFound = await _authRepository.GetByEmail(userData.email);
-        if (userFound == null || !VerifyPassword(userData!.password!, userFound.Password!)) throw new EntityNotFoundException("Usuario o contraseña incorrecto.");
+        var employeeFound = await _employeeRepository.GetByEmail(userData.email);
+        if (employeeFound == null || !VerifyPassword(userData!.password!, employeeFound.User!.Password!)) throw new EntityNotFoundException("Usuario o contraseña incorrecto.");
         return new UserDto.Response
         (
-            userFound.Employee!.Email!,
-            userFound.Employee.Name!,
-            userFound.Employee.LastName!,
-            userFound.Employee.Registration!,
-            userFound.Employee.PhoneNumber!,
-            userFound.Employee.GetType().Name,
+            employeeFound.Email!,
+            employeeFound.Name!,
+            employeeFound.LastName!,
+            employeeFound.Registration!,
+            employeeFound.PhoneNumber!,
+            employeeFound.GetType().Name,
             ""
         // TokenGenerator(userFound)
         );
@@ -61,38 +56,45 @@ public class AuthService : IAuthService
         if (userData!.password != userData.confirmPassword)
             throw new ArgumentException("Las contraseñas no coinciden.");
 
-        Employee employee = userData.typeEmployee.ToLower() switch
+        Employee newEmployee = userData.typeEmployee.ToLower().Equals("doctor") ? new Doctor()
         {
-            "doctor" => new Doctor(),
-            "nurse" => new Nurse(),
-            _ => new Employee()
-        };
-
-        employee.Name = userData.name;
-        employee.LastName = userData.lastName;
-        employee.Cuil = Cuil.Create(userData.cuil);
-        employee.Email = userData.email;
-        employee.PhoneNumber = userData.phoneNumber;
-        employee.Registration = userData.licence;
-        employee.TypeEmployee = userData.typeEmployee;
-
-        User newUser = new User
-        {
+            Name = userData.name,
+            LastName = userData.lastName,
+            Cuil = Cuil.Create(userData.cuil),
             Email = userData.email,
-            Password = BCrypt.Net.BCrypt.HashPassword(userData!.password),
-            Employee = employee
+            PhoneNumber = userData.phoneNumber,
+            Registration = userData.licence,
+            User = new User
+            {
+                Email = userData.email,
+                Password = BCrypt.Net.BCrypt.HashPassword(userData!.password)
+            }
+        } : new Nurse()
+        {
+            Name = userData.name,
+            LastName = userData.lastName,
+            Cuil = Cuil.Create(userData.cuil),
+            Email = userData.email,
+            PhoneNumber = userData.phoneNumber,
+            Registration = userData.licence,
+            User = new User
+            {
+                Email = userData.email,
+                Password = BCrypt.Net.BCrypt.HashPassword(userData!.password)
+            }
         };
-        var userRegistered = await _authRepository.Register(newUser);
 
-        return userRegistered != null ? new UserDto.Response
+        var employeeRegistered = await _employeeRepository.Register(newEmployee);
+
+        return employeeRegistered != null ? new UserDto.Response
         (
-            newUser.Email!, 
-            newUser.Employee.Name!, 
-            newUser.Employee.LastName!, 
-            newUser.Employee.Cuil.Value!, 
-            newUser.Employee.Registration!, 
-            newUser.Employee.PhoneNumber!,
-            newUser.Employee.TypeEmployee
+            employeeRegistered.Email!,
+            employeeRegistered.Name!,
+            employeeRegistered.LastName!,
+            employeeRegistered.Cuil!.Value!,
+            employeeRegistered.Registration!,
+            employeeRegistered.PhoneNumber!,
+            employeeRegistered.GetType().Name
         ) : null;
     }
     //private string TokenGenerator(User user)

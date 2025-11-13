@@ -12,12 +12,12 @@ namespace IngSw_Tests.Login;
 
 public class AuthServiceTest
 {
-	private readonly IAuthRepository _authRepository;
+	private readonly IEmployeeRepository _employeeRepository;
 	private readonly AuthService _authService;
 	public AuthServiceTest(/*IConfiguration configuration*/)
 	{
-		_authRepository = Substitute.For<IAuthRepository>();
-		_authService = new AuthService(_authRepository/*, configuration*/);
+		_employeeRepository = Substitute.For<IEmployeeRepository>();
+		_authService = new AuthService(_employeeRepository/*, configuration*/);
 	}
     [Fact]
     public async Task Login_WhenYouEnterTheCorrectEmailAndPassword_ThenYouLogIn_ShouldGetTheEmployee()
@@ -25,22 +25,22 @@ public class AuthServiceTest
 		// Arrange
 
 		var userDto = new UserDto.Request("ramirobrito@gmail.com", "bocateamo");
-		var userFound = new User
-		{ 
-			Email = "ramirobrito@gmail.com",
-			Password = BCrypt.Net.BCrypt.HashPassword("bocateamo"),
-			Employee = new Employee
-			{
-				Name = "Ramiro",
-				LastName = "Brito",
-				Cuil = Cuil.Create("20-42365986-7"),
-				PhoneNumber = "381754963",
-				Email = "ramirobrito@gmail.com",
-				Registration = "LO78Q"
-			}
+        var employeeFound = new Employee
+        {
+            Name = "Ramiro",
+            LastName = "Brito",
+            Cuil = Cuil.Create("20-42365986-7"),
+            PhoneNumber = "381754963",
+            Email = "ramirobrito@gmail.com",
+            Registration = "LO78Q",
+            User = new User
+            {
+                Email = "ramirobrito@gmail.com",
+                Password = BCrypt.Net.BCrypt.HashPassword("bocateamo"),
+            }
         };
-		_authRepository.GetByEmail("ramirobrito@gmail.com")!
-			.Returns(Task.FromResult(userFound));
+        _employeeRepository.GetByEmail("ramirobrito@gmail.com")!
+			.Returns(Task.FromResult(employeeFound));
 
 		// Act
 
@@ -48,11 +48,11 @@ public class AuthServiceTest
 
         // Assert
 
-        await _authRepository.Received(1).GetByEmail(Arg.Any<string>());
+        await _employeeRepository.Received(1).GetByEmail(Arg.Any<string>());
         Assert.NotNull(result);
-        Assert.Equal(userFound.Email, result.email);
-        Assert.Equal(userFound.Employee.Name, result.name);
-        Assert.Equal(userFound.Employee.LastName, result.lastName);
+        Assert.Equal(employeeFound.Email, result.email);
+        Assert.Equal(employeeFound.Name, result.name);
+        Assert.Equal(employeeFound.LastName, result.lastName);
     }
     [Fact]
     public async Task Login_WhenEnteredInvalidEmail_ShouldThrowEntityNotFoundException()
@@ -60,22 +60,22 @@ public class AuthServiceTest
         // Arrange
 
         var userDto = new UserDto.Request("matiasbrito@gmail.com", "bocateamo");
-        var userFound = new User
+        var employeeFound = new Employee
         {
+            Name = "Ramiro",
+            LastName = "Brito",
+            Cuil = Cuil.Create("20-42365986-7"),
+            PhoneNumber = "381754963",
             Email = "ramirobrito@gmail.com",
-            Password = BCrypt.Net.BCrypt.HashPassword("bocateamo"),
-            Employee = new Employee
+            Registration = "LO78Q",
+            User = new User
             {
-                Name = "Ramiro",
-                LastName = "Brito",
-                Cuil = Cuil.Create("20-42365986-7"),
-                PhoneNumber = "381754963",
                 Email = "ramirobrito@gmail.com",
-                Registration = "LO78Q"
+                Password = BCrypt.Net.BCrypt.HashPassword("bocateamo"),
             }
         };
-        _authRepository.GetByEmail("ramirobrito@gmail.com")!
-            .Returns(Task.FromResult(userFound));
+        _employeeRepository.GetByEmail("ramirobrito@gmail.com")!
+            .Returns(Task.FromResult(employeeFound));
 
         // Act & Assert
 
@@ -83,7 +83,7 @@ public class AuthServiceTest
             () => _authService.Login(userDto)
         );
         Assert.Equal("Usuario o contraseña incorrecto.", exception.Message);
-        await _authRepository.Received(1).GetByEmail(Arg.Any<string>());
+        await _employeeRepository.Received(1).GetByEmail(Arg.Any<string>());
 
     }
     [Fact]
@@ -92,29 +92,29 @@ public class AuthServiceTest
 		// Arrange
 
 		var userDto = new UserDto.Request("ramirobrito@gmail.com", "riverteamo");
-		var userFound = new User
-		{ 
-			Email = "ramirobrito@gmail.com",
-			Password = BCrypt.Net.BCrypt.HashPassword("bocateamo"),
-			Employee = new Employee
-			{
-				Name = "Ramiro",
-				LastName = "Brito",
-				Cuil = Cuil.Create("20-42365986-7"),
-				PhoneNumber = "381754963",
-				Email = "ramirobrito@gmail.com",
-				Registration = "LO78Q"
-			}
+        var employeeFound = new Employee
+        {
+            Name = "Ramiro",
+            LastName = "Brito",
+            Cuil = Cuil.Create("20-42365986-7"),
+            PhoneNumber = "381754963",
+            Email = "ramirobrito@gmail.com",
+            Registration = "LO78Q",
+            User = new User
+            {
+                Email = "ramirobrito@gmail.com",
+                Password = BCrypt.Net.BCrypt.HashPassword("bocateamo"),
+            }
         };
-		_authRepository.GetByEmail("ramirobrito@gmail.com")!
-			.Returns(Task.FromResult(userFound));
+        _employeeRepository.GetByEmail("ramirobrito@gmail.com")!
+			.Returns(Task.FromResult(employeeFound));
 
         // Act & Assert
         var exception = await Assert.ThrowsAsync<EntityNotFoundException>(
             () => _authService.Login(userDto)
         );
         Assert.Equal("Usuario o contraseña incorrecto.", exception.Message);
-        await _authRepository.Received(1).GetByEmail(Arg.Any<string>());
+        await _employeeRepository.Received(1).GetByEmail(Arg.Any<string>());
     }
     [Fact]
     public async Task Login_WhenEnteredEmptyEmail_ShouldThrowArgumentException()
@@ -128,7 +128,7 @@ public class AuthServiceTest
             () => _authService.Login(userDto)
         );
         Assert.Equal("Debe ingresar correctamente los datos", exception.Message);
-        await _authRepository.Received(0).GetByEmail(Arg.Any<string>());
+        await _employeeRepository.Received(0).GetByEmail(Arg.Any<string>());
     }
     [Fact]
     public async Task Login_WhenEnteredEmptyPassword_ShouldThrowArgumentException()
@@ -143,7 +143,7 @@ public class AuthServiceTest
         );
 
         Assert.Equal("Debe ingresar correctamente los datos", exception.Message);
-        await _authRepository.Received(0).GetByEmail(Arg.Any<string>());
+        await _employeeRepository.Received(0).GetByEmail(Arg.Any<string>());
     }
     [Fact]
     public async Task Register_WhenTheFormIsCompleteCorrectly_ThenShouldCreateUserAndEmployee()
@@ -158,52 +158,22 @@ public class AuthServiceTest
             cuil: "20-45750673-8",
             licence: "LO78Q",
             phoneNumber: "381754963",
-            typeEmployee: "nurse"
+            typeEmployee: "Nurse"
             );
 
-        _authRepository.Register(Arg.Any<User>())
-            .Returns(callInfo => callInfo.Arg<User>());
+        _employeeRepository.Register(Arg.Any<Employee>())
+            .Returns(callInfo => callInfo.Arg<Employee>());
 
         //Act
         var result = await _authService.Register(userDto);
 
         //Assert
-        await _authRepository.Received(1).Register(Arg.Any<User>());
+        await _employeeRepository.Received(1).Register(Arg.Any<Employee>());
         Assert.NotNull(result);
         Assert.Equal(userDto.email, result.email);
         Assert.Equal(userDto.cuil, result.cuil);
         Assert.Equal(userDto.licence, result.licence);
         Assert.Equal(userDto.typeEmployee, result.typeEmployee);
-    }
-    [Fact]
-    public async Task Register_WhenUserIsRegistering_ThenThePasswordShouldBeHashed()
-    {
-        // Arrange
-        var userDto = new UserDto.RequestRegister(
-            email: "ramirobrito@gmail.com",
-            password: "bocateamo",
-            confirmPassword: "bocateamo",
-            name: "Ramiro",
-            lastName: "Brito",
-            cuil: "20-45750673-8",
-            licence: "LO78Q",
-            phoneNumber: "381754963",
-            typeEmployee: "nurse"
-            );
-
-        User? userCaptured = null;
-
-        _authRepository.Register(Arg.Do<User>(u => userCaptured = u))
-            .Returns(callInfo => callInfo.Arg<User>());
-
-        //Act
-        var result = await _authService.Register(userDto);
-
-        //Assert
-        await _authRepository.Received(1).Register(Arg.Any<User>());
-        Assert.NotNull(userCaptured);
-        Assert.NotEqual(userDto.password, userCaptured.Password);
-        Assert.True(BCrypt.Net.BCrypt.Verify(userDto.password, userCaptured.Password));
     }
     [Fact]
     public async Task Register_WhenPasswordsDontMatching_ThenShouldArgumentException()
